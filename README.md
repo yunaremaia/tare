@@ -17,6 +17,8 @@ English.
 of what a session costs is the container — context re-sent again and again —
 and that's exactly what these tools subtract.*
 
+Read full story - https://www.kelviq.com/blog/claude-code-usage-limits-where-tokens-go/
+
 ## Install
 
 One command, in any terminal:
