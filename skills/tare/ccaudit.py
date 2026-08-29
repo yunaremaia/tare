@@ -229,6 +229,52 @@ def parse_session(fp, project, since, stats):
     return requests, tool_events
 
 
+def load_cursor_logs(since=None):
+    """Load Cursor logs from known locations."""
+    stats = Counter()
+    requests, tools = [], []
+    
+    home = Path.home()
+    # Possible Cursor log locations (global)
+    cursor_locations = [
+        home / ".cursor",
+        home / "Library" / "Application Support" / "Cursor",  # macOS
+        home / "AppData" / "Roaming" / "Cursor",  # Windows
+        home / ".config" / "Cursor",  # Linux
+        home / ".local" / "share" / "Cursor",  # Linux alternative
+    ]
+    
+    for location in cursor_locations:
+        if location.exists() and location.is_dir():
+            # Look for log files in this location
+            for ext in ["*.log", "*.jsonl", "*.json", "*.ldb"]:
+                for fp in location.rglob(ext):
+                    if fp.is_file():
+                        # Skip if too old
+                        try:
+                            mtime = dt.datetime.fromtimestamp(fp.stat().st_mtime, dt.timezone.utc)
+                        except OSError:
+                            continue
+                        if since and mtime < since:
+                            stats["files_skipped_old"] += 1
+                            continue
+                        stats["files_read"] += 1
+                        try:
+                            # We'll treat the project as the location name or "global"
+                            project = location.name or "cursor"
+                            r, t = parse_cursor_session(fp, project, since, stats)
+                            requests.extend(r)
+                            tools.extend(t)
+                        except Exception as e:
+                            stats["files_error"] += 1
+                            if stats["files_error"] <= 5:  # Only print first few errors
+                                print(f"Error parsing Cursor log {fp}: {e}", file=sys.stderr)
+    
+    # Sort requests by timestamp
+    requests.sort(key=lambda x: x["ts"] or dt.datetime.min.replace(tzinfo=dt.timezone.utc))
+    
+    return requests, tools, stats
+
 def load_all(root, since, verbose=False):
     stats = Counter()
     requests, tools = [], []
@@ -249,6 +295,14 @@ def load_all(root, since, verbose=False):
         r, t = parse_session(fp, project, since, stats)
         requests.extend(r)
         tools.extend(t)
+
+    # Load Cursor logs
+    cursor_requests, cursor_tools, cursor_stats = load_cursor_logs(since)
+    requests.extend(cursor_requests)
+    tools.extend(cursor_tools)
+    for k, v in cursor_stats.items():
+        stats[k] += v
+
     requests.sort(key=lambda x: x["ts"] or dt.datetime.min.replace(
         tzinfo=dt.timezone.utc))
     if verbose:

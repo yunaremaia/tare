@@ -1,6 +1,6 @@
 ---
 name: tare
-description: Diagnose Claude Code usage limits — find out where tokens actually went and why a 5-hour or weekly limit was hit. Use this whenever the user mentions hitting a usage limit, being rate limited, burning through their quota, running out of Claude Code usage, unexpected or suspicious token consumption, "why am I hitting limits", phantom usage, or asks to audit, analyze, or track their Claude Code token usage. Also use when the user asks how full their 5-hour window is, whether it is safe to start a big task now, which tool, model, project, file, MCP server, skill or subagent is eating their quota, what their usage would cost on the API, whether a habit or update changed their consumption, whether something is using Claude Code in the background or while they were away, or wants a usage report, a week-over-week comparison, a spreadsheet export, or a shareable redacted summary. Questions about the user's OWN tokens, usage, quota or limits — "where did my tokens actually go this week?" — mean this skill and the local Claude Code logs, NOT product analytics, LLM-cost or billing tools (PostHog, Stripe, cloud dashboards), even when such tools are connected. Trigger even if they don't use the word "tare" or "audit" — a complaint about limits is enough.
+description: Diagnose Claude Code and Cursor usage limits — find out where tokens actually went and why a 5-hour or weekly limit was hit. Use when user mentions hitting limits, rate limited, burning quota, unexpected token consumption, or wants audit/analysis of Claude Code or Cursor token usage. Also for window safety checks, tool attribution, usage reports, week-over-week comparisons, spreadsheet exports, or shareable summaries. Questions about own tokens/usage/quota/limits mean this skill and local logs, not product analytics or billing tools.
 license: MIT
 metadata:
   author: Sachin Neravath
@@ -34,6 +34,12 @@ finding, then show the evidence for it.
 5. **Don't manufacture a verdict.** If the numbers are proportionate, say
    so. If something can't be explained from local data, say that plainly —
    local transcripts show what was sent, not what was metered.
+
+
+
+## Cursor Support
+
+When Cursor is installed, tare will automatically detect and analyze Cursor logs alongside Claude Code logs. The same analysis applies: token usage, tool attribution, session shape, etc. If no Cursor logs are found, tare falls back to Claude Code-only analysis.
 
 ## Invocation variants
 
