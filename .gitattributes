@@ -1,0 +1,2 @@
+# Normalize line endings so working-tree bytes match the index on every platform
+* text=auto eol=lf
