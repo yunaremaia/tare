@@ -229,11 +229,119 @@ def parse_session(fp, project, since, stats):
     return requests, tool_events
 
 
+def parse_cursor_session(fp, project, since, stats):
+    """Walk one Cursor log file. Returns (requests, tool_events).
+
+    Cursor stores conversation data in ~/.cursor/*.log and similar paths.
+    The exact format varies by version. We try to extract API calls with
+    usage data where present, falling back gracefully when fields are missing.
+    """
+    requests, tool_events = [], []
+    tool_names = {}
+    seen = {}
+
+    try:
+        fh = open(fp, "r", encoding="utf-8", errors="replace")
+    except OSError:
+        return [], []
+
+    with fh:
+        for lineno, line in enumerate(fh, 1):
+            line = line.strip()
+            if not line:
+                continue
+            stats["lines"] += 1
+            try:
+                e = json.loads(line)
+            except json.JSONDecodeError:
+                stats["lines_bad_json"] += 1
+                continue
+            if not isinstance(e, dict):
+                stats["lines_not_object"] += 1
+                continue
+
+            # Cursor logs may nest the actual message under different keys.
+            # Try common shapes.
+            msg = e.get("message") or e.get("content") or {}
+            if not isinstance(msg, dict):
+                msg = {}
+            blocks = content_blocks(msg) if isinstance(msg, dict) else []
+
+            ts = parse_ts(e.get("timestamp") or e.get("time") or e.get("ts"))
+            if not blocks and "usage" not in msg:
+                continue
+
+            # register tool_use blocks
+            for b in blocks:
+                if b.get("type") == "tool_use":
+                    tool_names[b.get("id")] = normalize_tool(
+                        b.get("name"), b.get("input"))
+
+            # tool_result blocks
+            for b in blocks:
+                if b.get("type") != "tool_result":
+                    continue
+                label, detail = tool_names.get(
+                    b.get("tool_use_id"), ("unknown tool", None))
+                tokens = est_tokens(b.get("content"))
+                if not tokens and e.get("toolUseResult") is not None:
+                    tokens = est_tokens(e.get("toolUseResult"))
+                tool_events.append({
+                    "session": e.get("sessionId") or fp.stem,
+                    "project": project, "ts": ts, "tool": label,
+                    "detail": detail, "tokens": tokens,
+                    "is_error": bool(b.get("is_error")),
+                    "req_index": len(requests),
+                })
+
+            # API response with usage
+            usage = msg.get("usage") if isinstance(msg.get("usage"), dict) else None
+            if not usage:
+                # Try top-level usage on the log entry itself
+                usage = e.get("usage") if isinstance(e.get("usage"), dict) else None
+            if not usage:
+                continue
+            counts = {k: int(usage.get(k) or 0) for k in USAGE_KEYS}
+            if sum(counts.values()) == 0:
+                stats["lines_zero_usage"] += 1
+                continue
+            if since and ts and ts < since:
+                stats["records_old"] += 1
+                continue
+
+            key = e.get("requestId") or msg.get("id") or f"{fp.stem}:{lineno}"
+            if key in seen:
+                prev = requests[seen[key]]
+                prev["_dupes"] += 1
+                if counts["output_tokens"] > prev["output_tokens"]:
+                    prev.update(counts)
+                stats["dupes"] += 1
+                continue
+
+            seen[key] = len(requests)
+            requests.append({
+                "file": str(fp), "project": project,
+                "session": e.get("sessionId") or fp.stem, "ts": ts,
+                "model": str(msg.get("model") or e.get("model") or "unknown"),
+                "request_id": key,
+                "version": e.get("version") or msg.get("version") or "",
+                "stop_reason": msg.get("stop_reason"),
+                "cost_usd": e.get("costUSD") or msg.get("costUSD"),
+                "_dupes": 1, **counts,
+            })
+            stats["records"] += 1
+
+    total = len(requests)
+    for t in tool_events:
+        t["amplified"] = t["tokens"] * max(0, total - t["req_index"])
+    return requests, tool_events
+
+
 def load_cursor_logs(since=None):
     """Load Cursor logs from known locations."""
     stats = Counter()
     requests, tools = [], []
-    
+
     home = Path.home()
     # Possible Cursor log locations (global)
     cursor_locations = [
@@ -243,7 +351,7 @@ def load_cursor_logs(since=None):
         home / ".config" / "Cursor",  # Linux
         home / ".local" / "share" / "Cursor",  # Linux alternative
     ]
-    
+
     for location in cursor_locations:
         if location.exists() and location.is_dir():
             # Look for log files in this location
@@ -269,11 +377,11 @@ def load_cursor_logs(since=None):
                             stats["files_error"] += 1
                             if stats["files_error"] <= 5:  # Only print first few errors
                                 print(f"Error parsing Cursor log {fp}: {e}", file=sys.stderr)
-    
     # Sort requests by timestamp
     requests.sort(key=lambda x: x["ts"] or dt.datetime.min.replace(tzinfo=dt.timezone.utc))
-    
+
     return requests, tools, stats
+
 
 def load_all(root, since, verbose=False):
     stats = Counter()
