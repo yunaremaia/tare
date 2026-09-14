@@ -21,7 +21,7 @@ check every claim yourself in under a minute.
 
 | File | Reads | Writes | Network |
 |---|---|---|---|
-| `skills/tare/ccaudit.py` | `~/.claude/projects/**/*.jsonl` | only paths you pass (`--html`, `--csv`, `--share`) | **none** |
+|| `skills/tare/ccaudit.py` | `~/.claude/projects/**/*.jsonl`, Cursor logs (`~/.cursor/**/*.log`, `~/Library/Application Support/Cursor/**/*`, `%AppData%/Cursor/**/*`, `~/.config/Cursor/**/*`, `~/.local/share/Cursor/**/*`) | only paths you pass (`--html`, `--csv`, `--share`) | **none** |
 | `skills/tare/forensics.py` | the CSV you pass | nothing | **none** |
 | `skills/tare/ccreport.py` | nothing (rendering library) | nothing | **none** |
 | `skills/tare/SKILL.md` | instructions for Claude; runs the three scripts above | — | — |
