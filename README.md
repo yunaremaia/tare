@@ -168,7 +168,7 @@ yourself with one grep.
 
 - Claude Code on macOS or Linux
 - Python 3.9+ — already present on every Mac; no packages to install
-- Currently reads Claude Code's logs only, not other coding agents'
+- Currently reads Claude Code's logs and Cursor's logs, not other coding agents'
 
 ## Demo
 

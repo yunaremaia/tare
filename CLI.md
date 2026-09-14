@@ -25,7 +25,7 @@ findings at the top:
 
 **At-a-glance panel** — one screen, like `/usage` but from the transcripts,
 with attribution by project and tool, the current 5-hour window load, and
-the top finding as a tip:
+the top finding as a tip. Also reads Cursor logs if present:
 
 ```bash
 python3 skills/tare/ccaudit.py --days 1 --panel
@@ -382,7 +382,7 @@ opens the report.
 
 ## Caveats
 
-The transcript format is internal to Claude Code and changes between
+The transcript format is internal to Claude Code and Cursor and changes between
 releases, so the parser is defensive and reports what it couldn't read. If
 `--doctor` says a large share of lines were unparsed, run `--dump-sample` and
 check the field names. The `MODEL_RATES` table at the top of `skills/tare/ccaudit.py` is
